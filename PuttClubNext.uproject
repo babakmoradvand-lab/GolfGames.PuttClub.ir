@@ -1,0 +1,17 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.8",
+  "Category": "Games",
+  "Description": "A clean-slate, cross-platform golf lifestyle game.",
+  "Modules": [
+    {
+      "Name": "PuttClubNext",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    { "Name": "EnhancedInput", "Enabled": true },
+    { "Name": "GameplayCameras", "Enabled": true }
+  ]
+}
