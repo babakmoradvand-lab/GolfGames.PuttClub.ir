@@ -6,26 +6,33 @@
 - Git LFS برای فایل‌های باینری/Blender/GLB/texture؛ فایل‌های سنگین در Git معمولی قرار نگیرند.
 - CI و build validation فقط بعد از مشخص‌شدن محیط Unreal/SDK.
 
-## 1. Vertical slice کاراکتر و کنترل (اولویت اول)
-- Third-person camera rig، Enhanced Input برای touch/gamepad/keyboard، movement states (idle, walk, jog, stop, pivot, interact, golf-ready).
-- انتخاب/ساخت یک اسکلت استاندارد، retargetable locomotion set و animation blueprint؛ بدون وابستگی به mesh قدیمی.
-- ارزیابی حس حرکت با تست کاربر، camera collision/occlusion، motion smoothing و frame pacing.
+## 1. بازسازی تجربهٔ آغازین (اولویت صفر)
+- مسیر سینمایی کوتاه تا نمای زندهٔ باشگاه و کنترل مستقیم بازیکن؛ بدون ورود اجباری، ورود مهمان نمایشی یا صفحهٔ مستقل «ورود به بازی».
+- مسیر منو، pause، تنظیمات و تعامل زمینه‌ای را پیش از تولید محتوای انبوه طراحی کن.
+- منبع UI، کیفیت تصویر و اجرای اول را در `Docs/AAA_Rebuild_UX_Architecture_FA.md` ثبت کن.
 
-## 2. تعامل و حالت‌های فعالیت
-- Interface تعاملی مشترک و activity state machine.
-- فقط یک interaction نمونه را کامل کن؛ منطق لباس/انیمیشن تغییر حالت را جدا و قابل‌گسترش طراحی کن.
-- رفتار حمام پوشیده و غیرصریح.
+## 2. Vertical slice کاراکتر و کنترل
+- Third-person camera rig و Enhanced Input برای keyboard/mouse/gamepad؛ لمس برای مرحلهٔ بعد و نسخهٔ جدا.
+- locomotion states: idle, walk, jog, stop, pivot, interact, golf-ready؛ دوربین با collision/occlusion و smoothing.
+- اسکلت/ریگ و انیمیشن مستقل و قابل retarget؛ انتقال‌های باکیفیت و پیوسته، نه اتکا به mesh قدیمی.
+- ارزیابی حس حرکت، خوانایی تعامل، camera framing و frame pacing در build اجراشده.
 
-## 3. آزمون دارایی Blender
-- یک سوئیت یا بخش زمین را به‌صورت modular GLB/FBX وارد کن.
-- تست scale, axis, PBR, collision, LOD, navmesh و named anchors.
-- قراردادن assets خارج از source code با Git LFS و ثبت مجوزها.
+## 3. جهان و تعامل
+- یک قطعهٔ محدود clubhouse/زمین با هویت هنری، نور، صدای محیط و دست‌کم یک NPC واکنشی.
+- interface تعاملی مشترک، context prompts و state transition؛ فعالیت از محیط قابل‌دسترسی باشد.
+- نمایش قابلیت‌ها فقط وقتی کامل و قابل‌آزمون‌اند؛ آیتم منوییِ صرفاً placeholder نساز.
 
-## 4. Golf gameplay slice
-- tee, ball, club, aiming, swing input, launch/flight/landing; سپس لاگون/فیرِوی و ذخیرهٔ وضعیت.
+## 4. آزمون دارایی Blender
+- یک بخش زمین یا فضای clubhouse را modular وارد کن.
+- تست scale, axis, PBR, collision, LOD/Nanite eligibility, navmesh و named anchors.
+- ثبت مجوز، نسخه و منشأ assetها؛ assetها خارج از source code و فایل‌های حجیم با Git LFS.
+
+## 5. Golf gameplay slice
+- tee, ball, club, aiming, swing input, launch/flight/landing؛ سپس fairway/green/hazard و ذخیرهٔ محلی.
+- هماهنگی montage/notify ضربه با فیزیک، صدا و دوربین.
 - تست‌های deterministic و regression برای قوانین توپ و وضعیت round.
 
-## 5. پلتفرم‌ها
+## 6. پلتفرم‌ها
 - Windows/macOS development build؛ Android package + نصب آزمایشی محلی.
 - iPhone PWA جداگانه، با نسخهٔ وب سازگار و کیفیت مقیاس‌شونده.
 - Supabase پس از پیاده‌سازی local save، auth و RLS بررسی می‌شود.
