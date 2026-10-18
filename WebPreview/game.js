@@ -159,7 +159,7 @@ let strokes = 0, inGame = false, inFlight = false, settled = true, holed = false
 let velocity = new THREE.Vector3(), lastSafe = new THREE.Vector3(0, 0.12, 0.8);
 let cameraYaw = 0, cameraPitch = 0.27, cameraMode = 0;
 const clock = new THREE.Clock();
-const aimInput = $('aim'), powerInput = $('power'), shotShapeInput = $('shotShape');
+const faceInput = $('face'), powerInput = $('power'), shotShapeInput = $('shotShape');
 let shotCurve = 0; // -1 = hook left, 0 = straight, +1 = slice right for the default right-handed golfer.
 const numberFa = n => new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0 }).format(Math.round(n));
 let toastTimer;
@@ -168,7 +168,7 @@ function distanceToCup() { return Math.hypot(ball.position.x - 3.5, ball.positio
 function updateHUD() {
   $('strokeCount').textContent = numberFa(strokes);
   $('distanceBadge').textContent = holed ? 'توپ داخل حفره شد!' : `فاصله تا پرچم: ${numberFa(distanceToCup())} متر`;
-  $('aimOut').textContent = `${numberFa(Number(aimInput.value))}°`;
+  $('faceOut').textContent = `${numberFa(Number(faceInput.value))}°`;
   $('powerOut').textContent = `${numberFa(Number(powerInput.value))}٪`;
   const button = $('strike');
   if (holed) button.textContent = 'پایان سوراخ';
@@ -190,15 +190,16 @@ function setGolferPose(name) {
 function syncGolfer() {
   const p = golfer || fallbackGolfer;
   p.position.set(ball.position.x, 0, ball.position.z + 2.2);
-  p.rotation.y = Math.PI + THREE.MathUtils.degToRad(Number(aimInput.value));
+  const targetHeading = Math.atan2(cup.position.x - ball.position.x, -(cup.position.z - ball.position.z));
+  p.rotation.y = Math.PI + targetHeading + THREE.MathUtils.degToRad(Number(faceInput.value));
 }
 function updateAimGuide() {
   if (!inGame) return;
-  const a = THREE.MathUtils.degToRad(Number(aimInput.value));
-  const f = new THREE.Vector3(Math.sin(a), 0, -Math.cos(a));
+  // The guide is the lie-to-cup target line. Face, power, and shot shape never feed into it.
   guide.geometry.dispose();
-  const pts = [new THREE.Vector3(ball.position.x, 0.08, ball.position.z), new THREE.Vector3(ball.position.x + f.x * 42, 0.08, ball.position.z + f.z * 42)];
-  guide.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+  const from = new THREE.Vector3(ball.position.x, 0.08, ball.position.z);
+  const to = new THREE.Vector3(cup.position.x, 0.08, cup.position.z);
+  guide.geometry = new THREE.BufferGeometry().setFromPoints([from, to]);
   guide.computeLineDistances();
 }
 const guide = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: '#efe1b2', dashSize: 1.25, gapSize: 0.75, transparent: true, opacity: 0.75 }));
@@ -206,7 +207,7 @@ scene.add(guide);
 
 function startRound() {
   inGame = true; strokes = 0; holed = false; inFlight = false; settled = true;
-  shotShapeInput.value = 'straight'; shotCurve = 0;
+  faceInput.value = '0'; shotShapeInput.value = 'straight'; shotCurve = 0;
   ball.position.set(0, 0.12, 0.8); lastSafe.copy(ball.position); velocity.set(0, 0, 0);
   fallbackGolfer.visible = !golfer;
   syncGolfer();
@@ -226,21 +227,22 @@ function doStrike() {
   if (holed) { startRound(); return; }
   if (inFlight) return;
   if (strokes > 0 && settled) syncGolfer();
-  const angleDeg = Number(aimInput.value);
+  const faceAngle = THREE.MathUtils.degToRad(Number(faceInput.value));
   const power = Number(powerInput.value);
-  const angle = THREE.MathUtils.degToRad(angleDeg);
   const speed = 18 + power * 0.28;
   const loft = distanceToCup() < 24 ? 0.09 : 0.43;
-  // The aim guide remains the user's target line. Shot shape only adds airborne side-spin.
+  // The target line stays aimed at the cup; face angle and shot shape affect only the ball path.
   shotCurve = shotShapeInput.value === 'hook' ? -1 : shotShapeInput.value === 'slice' ? 1 : 0;
-  const dir = new THREE.Vector3(Math.sin(angle), 0, -Math.cos(angle));
+  const targetDir = new THREE.Vector3(cup.position.x - ball.position.x, 0, cup.position.z - ball.position.z).normalize();
+  const rightOfTarget = new THREE.Vector3(-targetDir.z, 0, targetDir.x);
+  const dir = targetDir.multiplyScalar(Math.cos(faceAngle)).addScaledVector(rightOfTarget, Math.sin(faceAngle)).normalize();
   velocity.set(dir.x * speed * Math.cos(loft), speed * Math.sin(loft), dir.z * speed * Math.cos(loft));
   inFlight = true; settled = false; strokes += 1;
   setGolferPose(distanceToCup() < 24 ? 'putt' : 'swing');
   updateHUD();
 }
 $('strike').addEventListener('click', doStrike);
-$('aim').addEventListener('input', () => { updateHUD(); updateAimGuide(); if (inGame && settled) syncGolfer(); });
+$('face').addEventListener('input', () => { updateHUD(); if (inGame && settled) syncGolfer(); /* guide intentionally stays fixed on the cup */ });
 $('power').addEventListener('input', updateHUD);
 shotShapeInput.addEventListener('change', () => {
   shotCurve = shotShapeInput.value === 'hook' ? -1 : shotShapeInput.value === 'slice' ? 1 : 0;
