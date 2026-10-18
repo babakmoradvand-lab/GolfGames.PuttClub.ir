@@ -1,5 +1,6 @@
 import * as THREE from './three.module.js';
 import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+import { SHOT_GUIDE } from './shot-guide.js';
 
 const $ = id => document.getElementById(id);
 const scene = new THREE.Scene();
@@ -159,16 +160,43 @@ let strokes = 0, inGame = false, inFlight = false, settled = true, holed = false
 let velocity = new THREE.Vector3(), lastSafe = new THREE.Vector3(0, 0.12, 0.8);
 let cameraYaw = 0, cameraPitch = 0.27, cameraMode = 0;
 const clock = new THREE.Clock();
-const faceInput = $('face'), powerInput = $('power'), shotShapeInput = $('shotShape');
-let shotCurve = 0; // -1 = hook left, 0 = straight, +1 = slice right for the default right-handed golfer.
+const powerInput = $('power');
+const swingLengthInput = $('swingLength');
+const clubFaceInput = $('clubFace');
+const stanceWidthInput = $('stanceWidth');
+const stanceAlignmentInput = $('stanceAlignment');
+const toeAngleInput = $('toeAngle');
+const footStaggerInput = $('footStagger');
+const pressureShiftInput = $('pressureShift');
+const releaseTimingInput = $('releaseTiming');
+const ballPositionInput = $('ballPosition');
+const swingPathInput = $('swingPath');
+const shotSettingInputs = [swingLengthInput, clubFaceInput, stanceWidthInput, stanceAlignmentInput, toeAngleInput, footStaggerInput, pressureShiftInput, releaseTimingInput, ballPositionInput, swingPathInput];
+let shotCurve = 0, deliveredFaceAngle = 0;
 const numberFa = n => new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0 }).format(Math.round(n));
+function getShotTuning() {
+  const swingSpeed = { full: 1, threeQuarter: 0.82, half: 0.62 }[swingLengthInput.value] ?? 1;
+  const faceAngle = { square: 0, open: 6, closed: -6 }[clubFaceInput.value] ?? 0;
+  const basePathAngle = { neutral: 0, inToOut: 4, outToIn: -4 }[swingPathInput.value] ?? 0;
+  const alignmentPath = { square: 0, open: -2, closed: 2 }[stanceAlignmentInput.value] ?? 0;
+  const toePath = { square: 0, inward: -1, outward: 1 }[toeAngleInput.value] ?? 0;
+  const footPath = { neutral: 0, leadForward: -1, trailForward: 1 }[footStaggerInput.value] ?? 0;
+  const pathAngle = basePathAngle + alignmentPath + toePath + footPath;
+  const stanceBodyAngle = { square: 0, open: -8, closed: 8 }[stanceAlignmentInput.value] ?? 0;
+  const releaseAngle = { natural: 0, early: -2.5, delayed: 2.5 }[releaseTimingInput.value] ?? 0;
+  const stanceFactor = { standard: 1, narrow: 0.98, wide: 0.99 }[stanceWidthInput.value] ?? 1;
+  const pressure = { balanced: { speed: 1, loft: 0 }, early: { speed: 1.02, loft: -0.035 }, late: { speed: 0.96, loft: 0.045 } }[pressureShiftInput.value] ?? { speed: 1, loft: 0 };
+  const ballPosition = { center: { loft: 0, stanceOffset: 0 }, forward: { loft: 0.055, stanceOffset: 0.24 }, back: { loft: -0.04, stanceOffset: -0.24 } }[ballPositionInput.value] ?? { loft: 0, stanceOffset: 0 };
+  const deliveredFace = faceAngle + releaseAngle;
+  const curve = THREE.MathUtils.clamp((deliveredFace - pathAngle) / 5, -1.5, 1.5);
+  return { swingSpeed, faceAngle, pathAngle, stanceBodyAngle, releaseAngle, deliveredFace, curve, stanceFactor, pressure, ballPosition };
+}
 let toastTimer;
 function notify(text) { const el = $('toast'); el.textContent = text; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), 2400); }
 function distanceToCup() { return Math.hypot(ball.position.x - 3.5, ball.position.z + 118); }
 function updateHUD() {
   $('strokeCount').textContent = numberFa(strokes);
   $('distanceBadge').textContent = holed ? 'توپ داخل حفره شد!' : `فاصله تا پرچم: ${numberFa(distanceToCup())} متر`;
-  $('faceOut').textContent = `${numberFa(Number(faceInput.value))}°`;
   $('powerOut').textContent = `${numberFa(Number(powerInput.value))}٪`;
   const button = $('strike');
   if (holed) button.textContent = 'پایان سوراخ';
@@ -176,7 +204,9 @@ function updateHUD() {
   else if (strokes > 0) button.textContent = 'ضربهٔ بعدی';
   else button.textContent = 'ضربه بزن';
   button.disabled = inFlight || !inGame;
-  shotShapeInput.disabled = inFlight;
+  powerInput.disabled = inFlight;
+  shotSettingInputs.forEach(input => { input.disabled = inFlight; });
+  $('shotSettingsOpen').disabled = inFlight;
   button.style.opacity = button.disabled ? '.7' : '1';
 }
 function setGolferPose(name) {
@@ -189,9 +219,10 @@ function setGolferPose(name) {
 }
 function syncGolfer() {
   const p = golfer || fallbackGolfer;
-  p.position.set(ball.position.x, 0, ball.position.z + 2.2);
+  const tuning = getShotTuning();
+  p.position.set(ball.position.x, 0, ball.position.z + 2.2 + tuning.ballPosition.stanceOffset);
   const targetHeading = Math.atan2(cup.position.x - ball.position.x, -(cup.position.z - ball.position.z));
-  p.rotation.y = Math.PI + targetHeading + THREE.MathUtils.degToRad(Number(faceInput.value));
+  p.rotation.y = Math.PI + targetHeading + THREE.MathUtils.degToRad(tuning.faceAngle + tuning.stanceBodyAngle);
 }
 function updateAimGuide() {
   if (!inGame) return;
@@ -207,7 +238,10 @@ scene.add(guide);
 
 function startRound() {
   inGame = true; strokes = 0; holed = false; inFlight = false; settled = true;
-  faceInput.value = '0'; shotShapeInput.value = 'straight'; shotCurve = 0;
+  swingLengthInput.value = 'full'; clubFaceInput.value = 'square'; stanceWidthInput.value = 'standard';
+  stanceAlignmentInput.value = 'square'; toeAngleInput.value = 'square'; footStaggerInput.value = 'neutral';
+  pressureShiftInput.value = 'balanced'; releaseTimingInput.value = 'natural'; ballPositionInput.value = 'center'; swingPathInput.value = 'neutral';
+  shotCurve = 0;
   ball.position.set(0, 0.12, 0.8); lastSafe.copy(ball.position); velocity.set(0, 0, 0);
   fallbackGolfer.visible = !golfer;
   syncGolfer();
@@ -227,27 +261,44 @@ function doStrike() {
   if (holed) { startRound(); return; }
   if (inFlight) return;
   if (strokes > 0 && settled) syncGolfer();
-  const faceAngle = THREE.MathUtils.degToRad(Number(faceInput.value));
-  const power = Number(powerInput.value);
-  const speed = 18 + power * 0.28;
-  const loft = distanceToCup() < 24 ? 0.09 : 0.43;
-  // The target line stays aimed at the cup; face angle and shot shape affect only the ball path.
-  shotCurve = shotShapeInput.value === 'hook' ? -1 : shotShapeInput.value === 'slice' ? 1 : 0;
+  const tuning = getShotTuning();
+  const baseSpeed = 18 + Number(powerInput.value) * 0.28;
+  const speed = baseSpeed * tuning.swingSpeed * tuning.pressure.speed * tuning.stanceFactor;
+  const baseLoft = distanceToCup() < 24 ? 0.09 : 0.43;
+  const loft = THREE.MathUtils.clamp(baseLoft + tuning.ballPosition.loft + tuning.pressure.loft, 0.035, 0.78);
+  deliveredFaceAngle = tuning.deliveredFace;
+  shotCurve = tuning.curve;
+  const faceRadians = THREE.MathUtils.degToRad(deliveredFaceAngle);
   const targetDir = new THREE.Vector3(cup.position.x - ball.position.x, 0, cup.position.z - ball.position.z).normalize();
   const rightOfTarget = new THREE.Vector3(-targetDir.z, 0, targetDir.x);
-  const dir = targetDir.multiplyScalar(Math.cos(faceAngle)).addScaledVector(rightOfTarget, Math.sin(faceAngle)).normalize();
+  const dir = targetDir.multiplyScalar(Math.cos(faceRadians)).addScaledVector(rightOfTarget, Math.sin(faceRadians)).normalize();
   velocity.set(dir.x * speed * Math.cos(loft), speed * Math.sin(loft), dir.z * speed * Math.cos(loft));
   inFlight = true; settled = false; strokes += 1;
   setGolferPose(distanceToCup() < 24 ? 'putt' : 'swing');
   updateHUD();
 }
 $('strike').addEventListener('click', doStrike);
-$('face').addEventListener('input', () => { updateHUD(); if (inGame && settled) syncGolfer(); /* guide intentionally stays fixed on the cup */ });
-$('power').addEventListener('input', updateHUD);
-shotShapeInput.addEventListener('change', () => {
-  shotCurve = shotShapeInput.value === 'hook' ? -1 : shotShapeInput.value === 'slice' ? 1 : 0;
-  // Deliberately do not rebuild or rotate the aim guide when shot technique changes.
-  notify('تکنیک ضربه تغییر کرد؛ خط هدف ثابت می‌ماند.');
+powerInput.addEventListener('input', updateHUD);
+shotSettingInputs.forEach(input => input.addEventListener('change', () => {
+  if (inGame && settled) syncGolfer();
+  // Settings never rebuild the target guide; only a new ball lie does.
+}));
+$('shotSettingsOpen').addEventListener('click', () => { $('shotSettingsPanel').hidden = false; });
+$('shotSettingsClose').addEventListener('click', () => { $('shotSettingsPanel').hidden = true; });
+$('closeShotSettings').addEventListener('click', () => { $('shotSettingsPanel').hidden = true; });
+document.querySelectorAll('[data-help]').forEach(button => button.addEventListener('click', () => {
+  const guide = SHOT_GUIDE[button.dataset.help];
+  if (!guide) return;
+  $('helpTitle').textContent = guide.title;
+  $('helpContent').innerHTML = guide.html;
+  $('helpDialog').hidden = false;
+}));
+$('helpClose').addEventListener('click', () => { $('helpDialog').hidden = true; });
+$('helpDialog').addEventListener('click', e => { if (e.target === $('helpDialog')) $('helpDialog').hidden = true; });
+$('shotSettingsPanel').addEventListener('click', e => { if (e.target === $('shotSettingsPanel')) $('shotSettingsPanel').hidden = true; });
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('helpDialog').hidden) $('helpDialog').hidden = true;
+  else if (e.key === 'Escape' && !$('shotSettingsPanel').hidden) $('shotSettingsPanel').hidden = true;
 });
 $('camToggle').addEventListener('click', () => { cameraMode = (cameraMode + 1) % 3; notify(['دوربین پشت بازیکن','نمای بازتر از زمین','نمای توپ'][cameraMode]); });
 
