@@ -99,4 +99,4 @@
 
 - پروژه در مخزن `PuttClubNext` یک شِل C++ برای UE 5.8 است؛ فایل `.uproject` نسخهٔ 5.8 را اعلام می‌کند.
 - در محیط فعلی ابزارهای `UnrealEditor` و `UnrealBuildTool` پیدا نشدند؛ بنابراین تا اجرای واقعی Unreal Editor، ساخت assetهای UMG/Level Sequence/Animation Blueprint یا build نهایی ادعا نمی‌شود.
-- `WebPreview/` خروجی وب جدا از بازی Unreal است و هم‌ارزی بصری/فنی ندارد. پیش‌نمونهٔ وبِ boot-to-playable اکنون ساخته شده و ورود نمایشی/صفحهٔ مهمان را ندارد؛ تعامل آن فقط نمونهٔ رابط است و گیم‌پلی کامل را پیاده‌سازی نمی‌کند. پس از هر push، URL ثابت Pages بررسی می‌شود؛ نسخهٔ جدید جایگزین ادعای build نهایی Unreal نیست.
+- گلف ۱ وب و گلف ۲ Unreal دو خروجی مستقل‌اند و در یک push هم‌زمان منتشر می‌شوند. `WebPreview/index.html` متعلق به گلف ۱ است؛ `WebPreview/golf2-preview.html` فقط نمونهٔ رابط آغازین گلف ۲ است و گیم‌پلی Unreal را پیاده‌سازی نمی‌کند. پس از هر push، URL ثابت Pages بررسی می‌شود؛ این بررسی جای build نهایی Unreal نیست.

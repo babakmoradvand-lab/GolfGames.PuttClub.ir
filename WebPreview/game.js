@@ -159,7 +159,8 @@ let strokes = 0, inGame = false, inFlight = false, settled = true, holed = false
 let velocity = new THREE.Vector3(), lastSafe = new THREE.Vector3(0, 0.12, 0.8);
 let cameraYaw = 0, cameraPitch = 0.27, cameraMode = 0;
 const clock = new THREE.Clock();
-const aimInput = $('aim'), powerInput = $('power');
+const aimInput = $('aim'), powerInput = $('power'), shotShapeInput = $('shotShape');
+let shotCurve = 0; // -1 = hook left, 0 = straight, +1 = slice right for the default right-handed golfer.
 const numberFa = n => new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0 }).format(Math.round(n));
 let toastTimer;
 function notify(text) { const el = $('toast'); el.textContent = text; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), 2400); }
@@ -175,6 +176,7 @@ function updateHUD() {
   else if (strokes > 0) button.textContent = 'ضربهٔ بعدی';
   else button.textContent = 'ضربه بزن';
   button.disabled = inFlight || !inGame;
+  shotShapeInput.disabled = inFlight;
   button.style.opacity = button.disabled ? '.7' : '1';
 }
 function setGolferPose(name) {
@@ -204,6 +206,7 @@ scene.add(guide);
 
 function startRound() {
   inGame = true; strokes = 0; holed = false; inFlight = false; settled = true;
+  shotShapeInput.value = 'straight'; shotCurve = 0;
   ball.position.set(0, 0.12, 0.8); lastSafe.copy(ball.position); velocity.set(0, 0, 0);
   fallbackGolfer.visible = !golfer;
   syncGolfer();
@@ -228,6 +231,8 @@ function doStrike() {
   const angle = THREE.MathUtils.degToRad(angleDeg);
   const speed = 18 + power * 0.28;
   const loft = distanceToCup() < 24 ? 0.09 : 0.43;
+  // The aim guide remains the user's target line. Shot shape only adds airborne side-spin.
+  shotCurve = shotShapeInput.value === 'hook' ? -1 : shotShapeInput.value === 'slice' ? 1 : 0;
   const dir = new THREE.Vector3(Math.sin(angle), 0, -Math.cos(angle));
   velocity.set(dir.x * speed * Math.cos(loft), speed * Math.sin(loft), dir.z * speed * Math.cos(loft));
   inFlight = true; settled = false; strokes += 1;
@@ -237,6 +242,11 @@ function doStrike() {
 $('strike').addEventListener('click', doStrike);
 $('aim').addEventListener('input', () => { updateHUD(); updateAimGuide(); if (inGame && settled) syncGolfer(); });
 $('power').addEventListener('input', updateHUD);
+shotShapeInput.addEventListener('change', () => {
+  shotCurve = shotShapeInput.value === 'hook' ? -1 : shotShapeInput.value === 'slice' ? 1 : 0;
+  // Deliberately do not rebuild or rotate the aim guide when shot technique changes.
+  notify('تکنیک ضربه تغییر کرد؛ خط هدف ثابت می‌ماند.');
+});
 $('camToggle').addEventListener('click', () => { cameraMode = (cameraMode + 1) % 3; notify(['دوربین پشت بازیکن','نمای بازتر از زمین','نمای توپ'][cameraMode]); });
 
 let drag = null;
@@ -278,6 +288,16 @@ function finishShot() {
 function tick(dt) {
   if (inFlight) {
     velocity.y -= 9.81 * dt;
+    if (shotCurve !== 0 && ball.position.y > 0.16) {
+      const horizontal = new THREE.Vector3(velocity.x, 0, velocity.z);
+      const horizontalSpeed = horizontal.length();
+      if (horizontalSpeed > 0.1) {
+        horizontal.normalize();
+        const lateral = new THREE.Vector3(-horizontal.z, 0, horizontal.x);
+        const curveAcceleration = shotCurve * Math.min(2.2, horizontalSpeed * 0.06);
+        velocity.addScaledVector(lateral, curveAcceleration * dt);
+      }
+    }
     ball.position.addScaledVector(velocity, dt);
     velocity.multiplyScalar(Math.max(0.985, 1 - dt * 0.012));
     if (ball.position.y <= 0.115) {
