@@ -1,5 +1,17 @@
-# PuttClub Next (new game; clean slate)
+# PuttClub Next — بازی تازه از صفر
 
-Standalone Unreal Engine 5.8 project scaffold. Not connected to and does not modify the prior PuttClub game/repository.
+پروژهٔ مستقل Unreal Engine 5.8. به بازی یا مخزن قدیمی متصل نیست و از کد، دارایی یا معماری آن استفاده نمی‌کند.
 
-Read `Docs/PROJECT_CHARTER_FA.md` and `Docs/BUILD_PLAN_FA.md` first. The initial deliverable is a tested character-and-interaction vertical slice, not a full game build. Unreal Editor/toolchain is required to generate project files, compile, and run.
+## پیش‌نمایش وبِ قابل‌آزمایش
+
+پوشهٔ `WebPreview/` شامل یک نمونهٔ موبایلیِ قابل‌بازی از سوراخ نخست گلف است: ورود مهمان، زمین پار ۳، مدل گلف‌باز GLB با انیمیشن‌های swing و putt، کنترل قدرت/جهت، و توپ با فیزیک ساده. این پیش‌نمایش نسخهٔ نهایی Unreal نیست.
+
+برای اجرای محلی، `WebPreview/` را با یک وب‌سرور محلی سرو کن (بازکردن مستقیم `index.html` به‌دلیل ماژول‌ها و GLB کافی نیست). نسخهٔ منتشرشده با هر پوشِ تغییرات `WebPreview/` از طریق GitHub Pages به‌روز می‌شود.
+
+## پروژهٔ Unreal
+
+برای نقشهٔ مسیر، `Docs/PROJECT_CHARTER_FA.md` و `Docs/BUILD_PLAN_FA.md` را ببین. اجرای Unreal Editor/toolchain برای تولید فایل‌های پروژه، ساخت و آزمون بازی لازم است؛ در این محیط Unreal Editor باز یا کامپایل نشده است.
+
+## دارایی‌ها
+
+منبع و مجوز مدل گلف‌باز در `Docs/ThirdPartyAssets.md` ثبت شده است. فایل محلی موتور: `Content/Characters/Golfer.glb`.
